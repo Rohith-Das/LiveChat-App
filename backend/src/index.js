@@ -49,7 +49,6 @@ io.on('connection', (socket) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       userSocketMap[decoded.userId] = socket.id;
-      io.emit('userStatus',{userID:decoded.userID, online:true})
     } catch (error) {
       console.log('Socket authentication error:', error);
       socket.disconnect();
@@ -64,8 +63,6 @@ io.on('connection', (socket) => {
       .limit(50);
     socket.emit('loadMessages', messages);
   });
-
-  
 
   socket.on('sendMessage', async ({ roomID, senderID, content }) => {
     try {
@@ -87,23 +84,8 @@ io.on('connection', (socket) => {
         (id) => id.toString() !== senderID.toString()
       );
       const recipientSocketID = userSocketMap[recipientID];
-         const isRecipientOnline = !!recipientSocketID;
-            if (isRecipientOnline) {
-      // Only emit delivered status if recipient is online
-      io.to(roomID).emit('receiveMessage', {
-        ...populatedMessage.toObject(),
-        status: 'delivered'
-      });
-      
-      // Update message status in DB
-      await Message.findByIdAndUpdate(message._id, { status: 'delivered' });
-    } else {
-      // Just send as "sent" if recipient is offline
-      io.to(roomID).emit('receiveMessage', populatedMessage);
-    }
-
       if (recipientSocketID) {
-        io.to(recipientSocketID).emit('newMessageNotification', { roomID , sender: populatedMessage.senderID });
+        io.to(recipientSocketID).emit('newMessageNotification', { roomID });
       }
     } catch (error) {
       console.log('Error in sendMessage:', error);
