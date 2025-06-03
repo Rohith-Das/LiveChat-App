@@ -8,6 +8,7 @@ import { THEMES } from '../constants';
 export default function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
 
+
   // Theme color configurations that match DaisyUI's actual colors
   const getThemeColors = (themeName) => {
     const themeColors = {
@@ -64,7 +65,7 @@ export default function SettingsPage() {
                     ? "bg-base-200 ring-2 ring-primary shadow-md" 
                     : "hover:bg-base-200/50"
                 }`}
-                onClick={() => setTheme(t)}
+                onClick={() => setTheme(colors)}
               >
                 {/* Theme Preview */}
                 <div className="relative h-8 w-full rounded-md overflow-hidden border border-base-300">

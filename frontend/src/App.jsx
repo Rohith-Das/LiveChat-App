@@ -11,7 +11,7 @@ import { useAuthStore } from './store/useAuthStore'
 import {Loader} from 'lucide-react'
 import {Toaster} from 'react-hot-toast'
 import { useThemeStore } from './store/useThemeStore'
-
+import ChatPage from './pages/ChatPage'
 
 
 function App() {
@@ -21,9 +21,19 @@ const checkAuth = useAuthStore((state) => state.checkAuth);
 const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth);
 const {theme,setTheme}=useThemeStore()
 
+
 useEffect(() => {
-  document.querySelector("html").setAttribute("data-theme", theme);
+  const selectedTheme = theme;
+  if (selectedTheme) {
+    document.querySelector("html").setAttribute("data-theme", theme);
+
+    // Apply to both <html> and <body>
+    document.documentElement.style.setProperty('background-color', selectedTheme.neutral, 'important');
+    document.body.style.setProperty('background-color', selectedTheme.neutral, 'important');
+  }
 }, [theme]);
+
+
 useEffect(() => {
   const storedTheme = localStorage.getItem("chat-theme") || "coffee";
   setTheme(storedTheme);
@@ -41,12 +51,14 @@ useEffect(() => {
   </div>
   )
   return (
-<div className="min-h-screen bg-base-100">
+<div id='main' className="min-h-screen">
      <Navbar/>
    <Routes>
-<Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />     <Route path='/login' element={<LoginPage/>}/>
+<Route path="/" element={authUser ? <HomePage /> : <Navigate to="/login" />} />   
+  <Route path='/login' element={<LoginPage/>}/>
      <Route path='/settings' element={ authUser ? <SettingsPage/> : <Navigate to="/login"/>}/>
      <Route path='/profile' element={authUser ? <ProfilePage/> : <Navigate to="/login" />}/>
+      <Route path="/chat" element={authUser ? <ChatPage /> : <Navigate to="/login" />} />
      <Route path='/signup' element={<SignUpPage />} />
    </Routes>
     

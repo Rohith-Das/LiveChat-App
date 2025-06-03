@@ -17,7 +17,10 @@ checkAuth: async () => {
     const res = await axiosInstance.get("/auth/check");
     set((state) => {
       if (!state.authUser || res.data._id !== state.authUser._id) {
-        return { authUser: res.data };
+        const socket=io("http://localhost:5002",{
+          auth:{token:localStorage.getItem("jwt")},
+        })
+        return { authUser: res.data ,socket};
       }
       return {};
     });
@@ -33,7 +36,10 @@ checkAuth: async () => {
     set({isSigningUp:true})
     try {
       const res=await axiosInstance.post("/auth/signup",data)
-      set({authUser:res.data})
+       const socket = io("http://localhost:5002", {
+        auth: { token: localStorage.getItem("jwt") },
+      });
+      set({authUser:res.data,socket})
       toast.success("Account created Successfully")
       return true
     } catch (error) {
@@ -49,9 +55,13 @@ checkAuth: async () => {
 
     try {
       await axiosInstance.post('/auth/logout')
-      set({authUser:null});
+      set((state)=>{
+        if(state.socket){
+          state.socket.disconnect()
+        }
+         return { authUser: null, socket: null, onlineUsers: [] };
+      });
       toast.success("Logged Out Successfully")
-
     } catch (error) {
         toast.error(error.response?.data?.message || "Something went wrong");
 
@@ -62,7 +72,10 @@ checkAuth: async () => {
     set({ isLoggingIn: true });
     try {
       const res=await axiosInstance.post("/auth/login",data)
-      set({authUser:res.data});
+          const socket = io("http://localhost:5002", {
+        auth: { token: localStorage.getItem("jwt") },
+      });
+      set({ authUser: res.data, socket });
       toast.success("Logged in Successfully")
       return true
     } catch (error) {
@@ -85,25 +98,5 @@ const errorMessage = error.response?.data?.message || "Something went wrong";   
     set({ isUpdatingProfile: false });
   }
 },
-followeUser: async(userId)=>{
-  try {
-    await axiosInstance.post(`/users/follow/${userId}`)
-    toast.success("Followed successfully");
-            return true;
-  } catch (error) {
-                toast.error(error.response?.data?.message || "Failed to follow user");
-            return false;
-  }
-},
-  unfollowUser: async (userId) => {
-        try {
-            await axiosInstance.post(`/users/unfollow/${userId}`);
-            toast.success("Unfollowed successfully");
-            return true;
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Failed to unfollow user");
-            return false;
-        }
-    },
-
+ setOnlineUsers: (users) => set({ onlineUsers: users }),
 }));
