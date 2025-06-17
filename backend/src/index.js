@@ -45,10 +45,13 @@ const userSocketMap = {};
 
 io.on('connection', (socket) => {
   const token = socket.handshake.auth.token;
+  let userID;
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userID=decoded.userID;
       userSocketMap[decoded.userId] = socket.id;
+      io.emit('userStatus',{userID:userID,online:true})
     } catch (error) {
       console.log('Socket authentication error:', error);
       socket.disconnect();
@@ -62,22 +65,33 @@ io.on('connection', (socket) => {
       .sort({ createdAt: 1 })
       .limit(50);
     socket.emit('loadMessages', messages);
+    await Message.updateMany(
+      {roomID:roomID,senderID:{$ne:userID}, status:'sent'},
+      {$set:{status:'devliverd'}}
+    )
+    io.to(roomID).emit('bulkMessageStatusUpdate',{roomID,userID:userID,status:'delivered'})
   });
 
-  socket.on('sendMessage', async ({ roomID, senderID, content }) => {
+  socket.on('sendMessage', async ({ roomID, senderID, content, tempId }) => {
     try {
       const message = new Message({
         roomID,
         senderID,
         content,
         status: 'sent',
+        tempId,
       });
       await message.save();
       const populatedMessage = await Message.findById(message._id).populate(
         'senderID',
         'fullName profilePic'
       );
-      io.to(roomID).emit('receiveMessage', populatedMessage);
+       const messageToSend = {
+      ...populatedMessage.toObject(),
+      tempId
+    };
+    
+      io.to(roomID).emit('receiveMessage', messageToSend);
 
       const chatRoom = await ChatRoom.findOne({ roomID });
       const recipientID = chatRoom.participants.find(
@@ -85,7 +99,15 @@ io.on('connection', (socket) => {
       );
       const recipientSocketID = userSocketMap[recipientID];
       if (recipientSocketID) {
-        io.to(recipientSocketID).emit('newMessageNotification', { roomID });
+        io.to(recipientSocketID).emit('newMessageNotification', {
+           roomID ,
+          senderID,
+        senderName:populatedMessage.senderID.fullName,
+       senderAvatar: populatedMessage.senderID.profilePic,
+        content: message.content.substring(0, 30)
+      });
+        await Message.findByIdAndUpdate(message._id,{status:'delivered'})
+        io.to(roomID).emit('messageStatusUpdate',{messageID:message._id,status:'delivered',tempId})
       }
     } catch (error) {
       console.log('Error in sendMessage:', error);
@@ -118,6 +140,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('userStatus', ({ userID, online }) => {
+  setUsers((prev) =>
+    prev.map((user) =>
+      user._id === userID ? { ...user, online } : user
+    )
+  );
+  setOnlineUsers(users.filter((user) => user.online).map((u) => u._id));
+});
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
     const userID = Object.keys(userSocketMap).find(

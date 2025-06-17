@@ -44,10 +44,16 @@
         const otherParticipant=room.participant.find(
           (p)=> p._id.toString() !== userID.toString()
         );
+const unreadCount = await Message.countDocuments({
+  roomID: room.roomID,
+  senderID: otherParticipant._id,
+  status: { $in: ["sent", "delivered"] }
+});
         return {
           roomID:room.roomID,
           participant:otherParticipant,
-          lastMessage
+          lastMessage,
+          unreadCount,
         }
       })
     )
@@ -73,6 +79,12 @@
       .populate("senderID", "fullName profilePic")
       .sort({ createdAt: 1 })
       .limit(50);
+      
+//user opne chat double tick
+       await Message.updateMany(
+      { roomID: roomID, senderID: { $ne: userID }, status: { $in: ["sent", "delivered"] } },
+      { $set: { status: 'read' } }
+    );
 
     res.status(200).json(messages);
 
