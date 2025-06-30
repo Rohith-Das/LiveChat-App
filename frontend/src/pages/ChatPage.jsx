@@ -53,32 +53,45 @@ export default function ChatPage() {
     }
 
     if (socket) {
-       socket.on('receiveMessage', (message) => {
-  if (message.roomID === selectedChat?.roomID) {
-    setMessages((prev) => {
-      // If this is our own message (based on tempId or content/sender match)
-      if (message.tempId) {
-        // Replace the temp message with the server message
-        return prev.map(msg => 
-          msg._id === message.tempId ? { ...message, _id: message._id } : msg
-        );
-      }
-      
-      // For other messages, check if it already exists
-      const exists = prev.some(msg => 
-        msg._id === message._id || 
-        (msg.content === message.content && 
-         msg.senderID._id === message.senderID._id &&
-         Math.abs(new Date(msg.createdAt) - new Date(message.createdAt)) < 1000)
+
+      socket.on('receiveMessage', (message) => {
+  console.log('Received message:', message); // Debug log
+  
+  // Update messages state
+  setMessages((prev) => {
+    // Check if message exists by ID or tempId
+    const exists = prev.some(msg => 
+      msg._id === message._id || 
+      msg.tempId === message.tempId
+    );
+    
+    if (exists) {
+      // Update existing message (for temp messages)
+      return prev.map(msg => 
+        (msg._id === message._id || msg.tempId === message.tempId) 
+          ? { ...message, tempId: undefined } 
+          : msg
       );
-      
-      return exists ? prev : [...prev, message];
-    });
-  } else {
+    } else {
+      // Add new message
+      return [...prev, message];
+    }
+  });
+
+  // Update chat list if this isn't the current chat
+  if (message.roomID !== selectedChat?.roomID) {
     fetchChats();
   }
+  
+  // Mark as delivered if it's the current chat and we're the recipient
+  if (message.roomID === selectedChat?.roomID && 
+      message.senderID._id !== authUser._id) {
+    socket.emit('messageReceived', {
+      messageID: message._id,
+      roomID: message.roomID
+    });
+  }
 });
-
       socket.on('loadMessages', (loadedMessages) => {
         setMessages(loadedMessages);
       });
@@ -255,33 +268,43 @@ export default function ChatPage() {
       toast.error('Failed to start chat');
     }
   };
+const handleSendMessage = async (e) => {
+  e.preventDefault();
+  if (!messageInput.trim() || !selectedChat) return;
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!messageInput.trim() || !selectedChat) return;
-
-     const tempId = `temp-${Date.now()}`;
-    const tempMessage = {
-      _id: tempId, 
-      roomID: selectedChat.roomID,
-      senderID: { _id: authUser._id ,
-         fullName: authUser.fullName, 
-        profilePic: authUser.profilePic},
-      content: messageInput,
-      status: 'sent',
-      createdAt: new Date(),
-    };
-    setMessages((prev) => [...prev, tempMessage]);
-    setMessageInput('');
-    setShowEmojiPicker(false); 
-    socket.emit('sendMessage', {
-      roomID: selectedChat.roomID,
-      senderID: authUser._id,
-      content: messageInput,
-      tempId,
-    });
-    socket.emit('stopTyping', { roomID: selectedChat.roomID, userID: authUser._id });
+  const tempId = `temp-${Date.now()}`;
+  const tempMessage = {
+    _id: tempId,
+    roomID: selectedChat.roomID,
+    senderID: { 
+      _id: authUser._id,
+      fullName: authUser.fullName,
+      profilePic: authUser.profilePic
+    },
+    content: messageInput,
+    status: 'sent',
+    createdAt: new Date(),
+    tempId // Include tempId in the temp message
   };
+
+  // Optimistically add the temp message
+  setMessages(prev => [...prev, tempMessage]);
+  setMessageInput('');
+  setShowEmojiPicker(false);
+
+  // Emit the message
+  socket.emit('sendMessage', {
+    roomID: selectedChat.roomID,
+    senderID: authUser._id,
+    content: messageInput,
+    tempId // Send tempId to server
+  });
+
+  socket.emit('stopTyping', { 
+    roomID: selectedChat.roomID, 
+    userID: authUser._id 
+  });
+};
 
   const handleTyping = () => {
     if (selectedChat) {

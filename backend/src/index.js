@@ -72,47 +72,50 @@ io.on('connection', (socket) => {
     io.to(roomID).emit('bulkMessageStatusUpdate',{roomID,userID:userID,status:'delivered'})
   });
 
-  socket.on('sendMessage', async ({ roomID, senderID, content, tempId }) => {
-    try {
-      const message = new Message({
-        roomID,
-        senderID,
-        content,
-        status: 'sent',
-        tempId,
-      });
-      await message.save();
-      const populatedMessage = await Message.findById(message._id).populate(
-        'senderID',
-        'fullName profilePic'
-      );
-       const messageToSend = {
+ socket.on('sendMessage', async ({ roomID, senderID, content, tempId }) => {
+  try {
+    const message = new Message({
+      roomID,
+      senderID,
+      content,
+      status: 'sent',
+      tempId,
+    });
+    await message.save();
+    const populatedMessage = await Message.findById(message._id).populate(
+      'senderID',
+      'fullName profilePic'
+    );
+    
+    const messageToSend = {
       ...populatedMessage.toObject(),
       tempId
     };
     
-      io.to(roomID).emit('receiveMessage', messageToSend);
+    // Emit to all in the room first
+    io.to(roomID).emit('receiveMessage', messageToSend);
 
-      const chatRoom = await ChatRoom.findOne({ roomID });
+    // Then handle notifications and status updates
+    const chatRoom = await ChatRoom.findOne({ roomID });
+    if (chatRoom) {
       const recipientID = chatRoom.participants.find(
         (id) => id.toString() !== senderID.toString()
       );
-      const recipientSocketID = userSocketMap[recipientID];
-      if (recipientSocketID) {
-        io.to(recipientSocketID).emit('newMessageNotification', {
-           roomID ,
-          senderID,
-        senderName:populatedMessage.senderID.fullName,
-       senderAvatar: populatedMessage.senderID.profilePic,
-        content: message.content.substring(0, 30)
-      });
-        await Message.findByIdAndUpdate(message._id,{status:'delivered'})
-        io.to(roomID).emit('messageStatusUpdate',{messageID:message._id,status:'delivered',tempId})
+      
+      // Update status for the recipient if they're online
+      if (recipientID && userSocketMap[recipientID]) {
+        await Message.findByIdAndUpdate(message._id, { status: 'delivered' });
+        io.to(roomID).emit('messageStatusUpdate', {
+          messageID: message._id,
+          status: 'delivered',
+          tempId
+        });
       }
-    } catch (error) {
-      console.log('Error in sendMessage:', error);
     }
-  });
+  } catch (error) {
+    console.log('Error in sendMessage:', error);
+  }
+});
 
   socket.on('typing', ({ roomID, userID }) => {
     socket.to(roomID).emit('typing', { userID });

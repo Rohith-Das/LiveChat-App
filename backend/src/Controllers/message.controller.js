@@ -35,7 +35,7 @@
     const userID=req.user._id;
     const chatRooms=await ChatRoom.find({
       participant:userID,
-    }).populate("participant","fullName email profilePic")
+    }).populate("participants","fullName email profilePic")
 
     const chats=await Promise.all(
       chatRooms.map(async (room)=>{
