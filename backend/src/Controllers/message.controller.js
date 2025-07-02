@@ -30,39 +30,49 @@
   }
  }
 
- export const getUserChats=async(req,res)=>{
+ export const getUserChats = async (req, res) => {
   try {
-    const userID=req.user._id;
-    const chatRooms=await ChatRoom.find({
-      participant:userID,
-    }).populate("participants","fullName email profilePic")
+    const userID = req.user._id;
 
-    const chats=await Promise.all(
-      chatRooms.map(async (room)=>{
-        const lastMessage=await Message.findOne({roomID:room.roomID})
-        .sort({createdAt:-1}).select("content createdAt")
-        const otherParticipant=room.participant.find(
-          (p)=> p._id.toString() !== userID.toString()
+    const chatRooms = await ChatRoom.find({
+      participants: userID,
+    }).populate("participants", "fullName email profilePic");
+
+    const chats = await Promise.all(
+      chatRooms.map(async (room) => {
+        const lastMessage = await Message.findOne({ roomID: room.roomID })
+          .sort({ createdAt: -1 })
+          .select("content createdAt");
+
+        const otherParticipant = room.participants.find(
+          (p) => p._id.toString() !== userID.toString()
         );
-const unreadCount = await Message.countDocuments({
-  roomID: room.roomID,
-  senderID: otherParticipant._id,
-  status: { $in: ["sent", "delivered"] }
-});
+
+        let unreadCount = 0;
+
+        if (otherParticipant) {
+          unreadCount = await Message.countDocuments({
+            roomID: room.roomID,
+            senderID: otherParticipant._id,
+            status: { $in: ["sent", "delivered"] },
+          });
+        }
+
         return {
-          roomID:room.roomID,
-          participant:otherParticipant,
+          roomID: room.roomID,
+          participant: otherParticipant || room.participants[0], // fallback if only one participant
           lastMessage,
           unreadCount,
-        }
+        };
       })
-    )
+    );
     res.status(200).json(chats);
   } catch (error) {
-      console.log("Error in getUserChats:", error);
+    console.log("Error in getUserChats:", error);
     res.status(500).json({ message: "Internal server error" });
   }
- }
+};
+
 
  export const getMessages=async(req,res)=>{
   try {
