@@ -103,3 +103,19 @@
     res.status(500).json({ message: "Internal server error" });
   }
  }
+
+ export const downloadFile=async(req,res)=>{
+  try {
+    
+    const {messageId}=req.params;
+    const message=await Message.findById(messageId);
+     if (!message || !message.url) {
+       return res.status(404).json({ message: 'File not found' });
+      } 
+       res.setHeader('Content-Disposition', `attachment; filename="${message.fileName}"`);
+       res.redirect(message.url);
+  } catch (error) {
+     console.error('Error downloading file:', error);
+       res.status(500).json({ message: 'Failed to download file' });
+  }
+ }

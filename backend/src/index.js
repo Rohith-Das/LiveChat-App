@@ -13,6 +13,7 @@ import { axiosInstance } from "../../frontend/src/lib/axios.js";
 import jwt from "jsonwebtoken";
 import Message from "./models/messageModel.js";
 import ChatRoom from "./models/chatRoomModel.js";
+import cloudinary from "./lib/cloudinary.js";
 
 dotenv.config();
 
@@ -28,7 +29,7 @@ const io = new Server(server, {
 });
 connectDB();
 
-app.use(express.json());
+app.use(express.json({limit:'10mb'}));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
@@ -76,17 +77,42 @@ io.on("connection", (socket) => {
     });
   });
 
-  
 
-  socket.on('sendMessage', async ({ roomID, senderID, content, tempId }) => {
+  socket.on('sendMessage', async ({ roomID, senderID, content, tempId ,type, file }) => {
   try {
+    //create message
     const message = new Message({
       roomID,
       senderID,
       content,
       status: 'sent',
       tempId,
+      type: type || 'text',
     });
+
+    if(type !== 'text' && file){
+      try {
+     const uploadedResponse = await cloudinary.uploader.upload(file,{
+      upload_preset: 'chat_upload',
+          resource_type: type === 'image' ? 'image' : type === 'video' ? 'video' : type === 'audio' ? 'audio' : 'raw', 
+          chunk_size: 6 * 1024 * 1024, 
+          max_file_size: type === 'image' ? 2 * 1024 * 1024 : 10 * 1024 * 1024, 
+     })
+     
+if (!uploadedResponse || !uploadedResponse.secure_url) {
+  throw new Error('Invalid Cloudinary upload response');
+}
+
+       message.url = uploadedResponse.secure_url;
+       
+      } catch (error) {
+          console.error('Error uploading to Cloudinary:', error);
+        io.to(socket.id).emit('uploadError', { tempId, message: 'Failed to upload file' });
+        return;
+      }
+    }else{
+        message.content = content;
+    }
     await message.save();
     
     const populatedMessage = await Message.findById(message._id).populate(
@@ -122,7 +148,7 @@ io.on("connection", (socket) => {
               senderID: populatedMessage.senderID._id,
               senderName: populatedMessage.senderID.fullName,
               senderAvatar: populatedMessage.senderID.profilePic,
-              content: message.content.substring(0, 30),
+             content: type === 'text' ? message.content.substring(0, 30) : `Sent a ${type}`,
               count: 1
             });
           }

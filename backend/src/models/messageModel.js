@@ -14,13 +14,27 @@ const messageSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: true,
+       default: "",
     },
     status: {
       type: String,
       enum: ["sent", "delivered", "read"],
       default: "sent",
     },
+    type:{
+      type:String,
+       enum: ["text", "image", "video", "audio", "document"],
+      default: "text",
+    },
+    url:{
+      type:String,
+    },
+    fileName:{
+      type:String,
+    },
+    tempId: { 
+      type: String,
+    }
   },
   { timestamps: true }
 );
