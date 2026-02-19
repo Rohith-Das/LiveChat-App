@@ -2,7 +2,7 @@
 
 
  export const axiosInstance=axios.create({
-    baseURL: "http://localhost:5002/api",
+   baseURL: "https://livechat-app-0tfz.onrender.com/api",
     withCredentials:true
  })
  export const formatMessageTime = (date) => {
