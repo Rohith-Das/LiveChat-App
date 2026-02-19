@@ -8,20 +8,20 @@ import authRoutes from "./routes/authRoutes.js";
 import { connectDB } from "./lib/db.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import cors from "cors";
-import { Socket } from "dgram";
-import { axiosInstance } from "../../frontend/src/lib/axios.js";
 import jwt from "jsonwebtoken";
 import Message from "./models/messageModel.js";
 import ChatRoom from "./models/chatRoomModel.js";
 import cloudinary from "./lib/cloudinary.js";
 
 dotenv.config();
+const CLIENT_URL = process.env.CLIENT_URL;
+
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin:CLIENT_URL,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
@@ -35,7 +35,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: CLIENT_URL,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],

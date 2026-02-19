@@ -1,0 +1,12 @@
+{
+    "name": "livechat-root",
+    "private": true,
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "scripts": {
+        "build": "cd backend && npm install",
+        "postinstall": "cd backend && npm install",
+        "start": "cd backend && npm start"
+    }
+}
