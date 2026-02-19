@@ -3,6 +3,9 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import {io} from 'socket.io-client'
 
+const SOCKET_URL = "https://livechat-app-0tfz.onrender.com";
+
+
 export const useAuthStore = create((set) => ({
   authUser: null,
   isSigningUp: false,
@@ -17,7 +20,7 @@ checkAuth: async () => {
     const res = await axiosInstance.get("/auth/check");
     set((state) => {
       if (!state.authUser || res.data._id !== state.authUser._id) {
-        const socket=io("http://localhost:5002",{
+        const socket=io(SOCKET_URL,{
           auth:{token:localStorage.getItem("jwt")},
         })
         return { authUser: res.data ,socket};
@@ -36,7 +39,7 @@ checkAuth: async () => {
     set({isSigningUp:true})
     try {
       const res=await axiosInstance.post("/auth/signup",data)
-       const socket = io("http://localhost:5002", {
+       const socket = io(SOCKET_URL, {
         auth: { token: localStorage.getItem("jwt") },
       });
       set({authUser:res.data,socket})
@@ -72,7 +75,7 @@ checkAuth: async () => {
     set({ isLoggingIn: true });
     try {
       const res=await axiosInstance.post("/auth/login",data)
-          const socket = io("http://localhost:5002", {
+          const socket = io(SOCKET_URL, {
         auth: { token: localStorage.getItem("jwt") },
       });
       set({ authUser: res.data, socket });
